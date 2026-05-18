@@ -19,16 +19,28 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 `call` / `chat` 매트릭스를 띄우기 전 **어느 provider·model을 쓸지 사용자에게 확인**한다. 비용·속도·답변 톤·길이 편차가 크므로 디폴트로 박지 말 것. 사용자가 명시 안 하면 묻고 진행.
 
-자주 쓰는 후보 (provider:model 토큰):
+### 후보 모델 (2026-05 기준)
 
-| 후보 | 특성 |
-|---|---|
-| `gemini:gemini-2.5-flash` | 빠름·저렴. 짧고 직설적 |
-| `openai:gpt-4o-mini` | 중간. 균형잡힌 길이 |
-| `claude:claude-haiku-4-5` | 정보량 풍부, 약간 김 |
-| `gemini:gemini-2.5-pro` / `openai:gpt-4o` / `claude:claude-sonnet-4-5` | 큰 모델 — 더 정밀한 비교 필요 시 |
+`provider:model` 토큰으로 `--model` 인자에 전달.
 
-사용자가 "전부 비교해줘"·"3사 매트릭스" 같이 말하면 첫 3개로 시작. 그 외엔 "어떤 모델로 돌릴까요?" 한 번 물은 뒤 진행.
+| Provider | 빠름·저렴 (smoke·빠른 iteration) | 균형 (일상 매트릭스) | 정밀·큰 모델 (최종 검증) |
+|---|---|---|---|
+| **gemini** | `gemini:gemini-2.5-flash-lite` | `gemini:gemini-2.5-flash` | `gemini:gemini-2.5-pro` |
+| **claude** | `claude:claude-haiku-4-5` | `claude:claude-sonnet-4-6` | `claude:claude-opus-4-7` |
+| **openai** | `openai:gpt-5.4-nano` 또는 `openai:gpt-4.1-mini` | `openai:gpt-5.4-mini` | `openai:gpt-5.5` |
+
+추론(reasoning) 특화: `openai:o3-mini`, `openai:o3-pro`. Claude·Gemini는 별도 reasoning 모델은 없고 본 모델이 thinking 기능 내장(`claude-opus-4-7`의 extended thinking, `gemini-2.5-*`의 thinking budget).
+
+deprecated/곧 EOL: `gemini-2.0-flash`·`gemini-2.0-flash-lite`(2026-06-01 종료), `gpt-5.2-chat-latest`·`gpt-5.3-chat-latest`(2026-05-08 제거됨). `gpt-4o-mini`는 동작은 하나 후속은 `gpt-4.1-mini` / `gpt-5.4-mini`.
+
+Anthropic 모델 ID는 모두 pinned snapshot. dateless 형태(`claude-haiku-4-5`)도 evergreen pointer가 아니라 특정 릴리스 고정.
+
+### 진행 규칙
+
+- 사용자가 "3사 비교"·"전부 매트릭스" → 위 표 **균형** 컬럼 3개로 시작.
+- 사용자가 "빠르게"·"smoke" → **빠름·저렴** 컬럼.
+- 사용자가 "정밀"·"품질 검증" → **정밀·큰 모델** 컬럼.
+- 그 외 모호한 경우 → "어떤 모델로 돌릴까요? (예: 빠른 3사 매트릭스 / 큰 모델 정밀 비교)" 한 번 묻고 진행.
 
 ## 5 서브커맨드
 
