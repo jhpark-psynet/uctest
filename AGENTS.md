@@ -21,25 +21,45 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 ### 후보 모델 (2026-05 기준)
 
-`provider:model` 토큰으로 `--model` 인자에 전달. **GPT 4.x 시리즈는 후보 제외** (5.x로 일원화). Gemini는 2.5 deprecation(2026-06-17) 이전에 **3.x 시리즈로 통일**.
+`provider:model` 토큰으로 `--model` 인자에 전달. **GPT 4.x는 후보 제외** (5.x로 일원화). Gemini는 2.5 deprecation(2026-06-17) 이전에 **3.x 시리즈로 통일**.
 
-| Provider | 빠름·저렴 (smoke·빠른 iteration) | 균형 (일상 매트릭스) | 정밀·큰 모델 (최종 검증) |
+가격은 **USD per 1M tokens** (input / output). 매트릭스 1회 비용은 `Σ (in × $in + out × $out) / 1,000,000` 로 추정.
+
+| Provider | Model | $ in / out | 용도 |
 |---|---|---|---|
-| **gemini** | `gemini:gemini-3.1-flash-lite` | `gemini:gemini-3-flash` | `gemini:gemini-3.1-pro-preview` |
-| **claude** | `claude:claude-haiku-4-5` | `claude:claude-sonnet-4-6` | `claude:claude-opus-4-7` |
-| **openai** | `openai:gpt-5.4-nano` | `openai:gpt-5.4-mini` 또는 `openai:gpt-5.4` | `openai:gpt-5.5` 또는 `openai:gpt-5.5-pro` |
+| **gemini** | `gemini-3.1-flash-lite-preview` | 0.25 / 1.50 | 가장 저렴, smoke |
+| **gemini** | `gemini-3-flash` | 0.50 / 3.00 | 균형 (Pro급 지능 + Flash 가격) |
+| **gemini** | `gemini-3.1-pro-preview` | 2.00 / 12.00 | 정밀 (preview) |
+| **claude** | `claude-haiku-4-5` | 1.00 / 5.00 | 빠름·저렴 |
+| **claude** | `claude-sonnet-4-6` | 3.00 / 15.00 | 균형 (1M ctx) |
+| **claude** | `claude-opus-4-7` | 5.00 / 25.00 | 정밀, extended thinking |
+| **openai** | `gpt-5.4-nano` | 0.20 / 1.25 | 가장 저렴 |
+| **openai** | `gpt-5.4-mini` | 0.75 / 4.50 | 빠름 |
+| **openai** | `gpt-5.4` | 2.50 / 15.00 | 균형 |
+| **openai** | `gpt-5.5` | 5.00 / 30.00 | 정밀 (1.05M ctx) |
 
-주의:
-- `gpt-5.5-mini` / `gpt-5.5-nano`는 **공식 존재하지 않음** (2026-05-18 OpenAI API 직접 확인). 5.5 라인은 `gpt-5.5` / `gpt-5.5-pro` 둘뿐. 작은 변형이 필요하면 5.4 시리즈를 쓴다.
-- `gemini-3.1-pro-preview`는 preview 상태 — stable Pro는 GA 전. preview 안 쓰려면 정밀 컬럼은 `gemini-3-flash`(Pro급 지능)로 갈음 가능.
-- Anthropic 모델 ID는 dateless 형태도 모두 pinned snapshot (evergreen 아님). snapshot 명시가 필요하면 `claude-haiku-4-5-20251001` 같은 dated 변형 사용.
+비용 감 잡기 — 입력 ~3000 tok × 출력 ~100 tok 한 응답 기준 단가 (USD):
 
-추론(reasoning) 특화 — 별도 행으로:
-- `openai:o3` (current), `openai:o3-pro` (높은 reasoning). `o3-mini`·`o4-mini`는 deprecated.
+| Tier | gemini | claude | openai |
+|---|---|---|---|
+| 가장 저렴 | flash-lite ~0.001 | — | nano ~0.001 |
+| 빠름 | — | haiku ~0.004 | mini ~0.003 |
+| 균형 | flash ~0.002 | sonnet ~0.011 | 5.4 ~0.009 |
+| 정밀 | pro-preview ~0.007 | opus ~0.018 | 5.5 ~0.018 |
+
+3사 균형 매트릭스 (Q × 3모델) 1 사이클 ≈ $0.02~0.04. 정밀 매트릭스는 ≈ $0.05~0.10.
+
+추론(reasoning) 특화 — 별도:
+- `openai:o3` (current), `openai:o3-pro`. `o3-mini`·`o4-mini`는 deprecated.
 - Claude·Gemini는 별도 reasoning 모델 없음. 본 모델이 thinking 내장 (`claude-opus-4-7` extended thinking, `gemini-3.*` thinking budget).
 
+주의:
+- `gpt-5.5-mini` / `gpt-5.5-nano`는 **공식 존재하지 않음** (2026-05-18 OpenAI API 직접 확인). 5.5 라인은 `gpt-5.5` / `gpt-5.5-pro` 둘뿐. 작은 변형은 5.4 시리즈만.
+- `gemini-3.1-pro-preview` / `gemini-3.1-flash-lite-preview`는 preview 상태 — stable Pro는 GA 전. preview 피하려면 `gemini-3-flash` 1종으로 갈음.
+- Anthropic ID는 dateless 형태도 모두 pinned snapshot (evergreen 아님). snapshot 명시가 필요하면 `claude-haiku-4-5-20251001` 같은 dated 변형 사용.
+
 곧 EOL되어 새 작업에선 쓰지 말 것:
-- `gemini-2.5-flash` / `gemini-2.5-pro` / `gemini-2.5-flash-lite` — 2026-06-17 deprecated (Vertex AI는 10-16)
+- `gemini-2.5-*` — 2026-06-17 deprecated (Vertex AI는 10-16)
 - `gemini-2.0-*` — 2026-06-01 종료
 - `gpt-5.2-chat-latest` / `gpt-5.3-chat-latest` — 2026-05-08 제거됨
 - `gpt-4o-*` / `gpt-4.1-*` — 동작은 하나 후보에서 명시적으로 제외
