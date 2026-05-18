@@ -15,6 +15,21 @@ cd /home/huto/dev/uctest
 
 API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN`은 `.env`로 자동 로드 (pydantic-settings). `OPENSSL_CONF`는 패키지 import 시 `uctest/__init__.py`가 동봉 `openssl_legacy.cnf`로 자동 setdefault — **에이전트는 손대지 말 것**. (SQL Server 2014 TLS 호환용 — 안 걸면 fetch가 `pyodbc 08001 / 10054`로 깨짐.)
 
+## 작업 시작 전 — 모델은 사용자에게 묻는다
+
+`call` / `chat` 매트릭스를 띄우기 전 **어느 provider·model을 쓸지 사용자에게 확인**한다. 비용·속도·답변 톤·길이 편차가 크므로 디폴트로 박지 말 것. 사용자가 명시 안 하면 묻고 진행.
+
+자주 쓰는 후보 (provider:model 토큰):
+
+| 후보 | 특성 |
+|---|---|
+| `gemini:gemini-2.5-flash` | 빠름·저렴. 짧고 직설적 |
+| `openai:gpt-4o-mini` | 중간. 균형잡힌 길이 |
+| `claude:claude-haiku-4-5` | 정보량 풍부, 약간 김 |
+| `gemini:gemini-2.5-pro` / `openai:gpt-4o` / `claude:claude-sonnet-4-5` | 큰 모델 — 더 정밀한 비교 필요 시 |
+
+사용자가 "전부 비교해줘"·"3사 매트릭스" 같이 말하면 첫 3개로 시작. 그 외엔 "어떤 모델로 돌릴까요?" 한 번 물은 뒤 진행.
+
 ## 5 서브커맨드
 
 | 명령 | 역할 | 외부 의존성 |
