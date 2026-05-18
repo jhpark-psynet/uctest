@@ -32,7 +32,7 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 | Provider | Model | $ in / out | 용도 |
 |---|---|---|---|
-| **gemini** | `gemini-3.1-flash-lite-preview` | 0.25 / 1.50 | 가장 저렴, smoke |
+| **gemini** | `gemini-3.1-flash-lite` | 0.25 / 1.50 | 가장 저렴, smoke (stable. preview는 2026-05-25 EOL) |
 | **gemini** | `gemini-3-flash` | 0.50 / 3.00 | 균형 (Pro급 지능 + Flash 가격) |
 | **gemini** | `gemini-3.1-pro-preview` | 2.00 / 12.00 | 정밀 (preview) |
 | **claude** | `claude-haiku-4-5` | 1.00 / 5.00 | 빠름·저렴 |
@@ -60,10 +60,11 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 주의:
 - `gpt-5.5-mini` / `gpt-5.5-nano`는 **공식 존재하지 않음** (2026-05-18 OpenAI API 직접 확인). 5.5 라인은 `gpt-5.5` / `gpt-5.5-pro` 둘뿐. 작은 변형은 5.4 시리즈만.
-- `gemini-3.1-pro-preview` / `gemini-3.1-flash-lite-preview`는 preview 상태 — stable Pro는 GA 전. preview 피하려면 `gemini-3-flash` 1종으로 갈음.
+- `gemini-3.1-pro-preview`는 아직 preview — stable Pro는 GA 전. preview 피하려면 `gemini-3-flash` 1종으로 갈음. (flash-lite는 stable GA 됐음.)
 - Anthropic ID는 dateless 형태도 모두 pinned snapshot (evergreen 아님). snapshot 명시가 필요하면 `claude-haiku-4-5-20251001` 같은 dated 변형 사용.
 
 곧 EOL되어 새 작업에선 쓰지 말 것:
+- `gemini-3.1-flash-lite-preview` — 2026-05-25 종료. stable `gemini-3.1-flash-lite`로 갈음.
 - `gemini-2.5-*` — 2026-06-17 deprecated (Vertex AI는 10-16)
 - `gemini-2.0-*` — 2026-06-01 종료
 - `gpt-5.2-chat-latest` / `gpt-5.3-chat-latest` — 2026-05-08 제거됨
@@ -128,65 +129,63 @@ jq -r '.results | sort_by(.question_idx, .provider) | .[] |
        "[\(.provider)/\(.model) | Q\(.question_idx) | in=\(.input_tokens) out=\(.output_tokens)]\n\(.text)\n"' /tmp/m.json
 ```
 
-## 리포트 시나리오 — HTML로 저장 (복사해 쓰는 흐름)
+## 리포트 시나리오 — HTML로 저장 (사용자 입력 양식)
 
-사용자가 **"오늘 ○○ 경기 뭐 있어? → 게임 픽 → 질문 리스트 → 모델 리스트 → HTML 리포트"** 형태로 요청할 때 그대로 따라하는 5단계. 실행 산출물은 `testout/report.html` (gitignored).
+사용자가 매트릭스 리포트를 시킬 때 아래 양식을 채워서 한 번에 던지는 게 정식 진입. 에이전트는 6필드를 파싱해 `games` → `fetch` → `chat --include-prompts` → `build_report`까지 자동 실행하고 `testout/report.html` (gitignored)을 만든다.
 
-### 흐름
+### 입력 양식 (사용자가 복사해 채우는 원본 — 아래는 예시값으로 채워둠)
 
-1. **사용자 트리거**: "오늘 농구 경기 뭐 있어?" 같은 종목 묻는 질문 → `games --sport K`로 응답.
-2. **사용자 선택**: 게임 + 질문 N개 + 모델 M개 (모델은 [후보 모델 표](#후보-모델-2026-05-기준) 기반).
-3. **데이터 fetch** → **chat 매트릭스 (`--include-prompts` 필수)** → **(옵션) eval JSON 작성** → **build_report**.
-
-`--include-prompts`는 리포트 정확성에 필요. 매트릭스 JSON에 실제 호출에 들어간 `system_prompt`(top-level) + `results[].user_prompt`가 박혀 build_report가 베이스 재렌더 대신 그대로 가져온다. 사용자가 `--system "변형 텍스트"`로 변형 system을 넣어도 리포트엔 그 변형이 박힘. 빠뜨리면 build_report가 베이스 가정으로 fallback (변형 실험이면 어긋남, 출처 표시로 경고).
-
-### 실행 — 디트로이트 vs 클리블랜드 (2026-05-18 실제 케이스)
-
-```sh
-# 1) 게임 목록 → game_id 픽업
-.venv/bin/uctest games --sport K 2>/dev/null | jq '.games[] | {game_id, home_team, away_team, status}'
-# → OT2025313107577 (디트로이트 94 : 125 클리블랜드, FINISHED)
-
-# 2) 데이터 + 응원글
-.venv/bin/uctest fetch --sport K --game-id OT2025313107577 --cheer-size 20 > /tmp/g.json 2>/dev/null
-
-# 3) 매트릭스 (4질문 × 4모델, --include-prompts 켜기)
-.venv/bin/uctest chat \
-  --system "$(.venv/bin/uctest prompts system)" \
-  --user-template-file uctest/templates/user.jinja \
-  --question "오늘 어디가 승부처?" \
-  --question "역배에 걸었다 망했네" \
-  --question "빵 먹고 싶다" \
-  --question "망할 디트로이트 죽이고 싶다" \
-  --game-data /tmp/g.json \
-  --include-prompts \
-  --model gemini:gemini-3.1-flash-lite-preview \
-  --model gemini:gemini-3-flash-preview \
-  --model openai:gpt-5.4-mini \
-  --model openai:gpt-5.4 \
-  > /tmp/m.json 2>/dev/null
-
-# 4) config.json (questions + models + 선택적 eval). 가장 작은 형태:
-cat > /tmp/cfg.json <<'JSON'
-{
-  "questions": ["오늘 어디가 승부처?", "역배에 걸었다 망했네", "빵 먹고 싶다", "망할 디트로이트 죽이고 싶다"],
-  "models": [
-    {"provider": "gemini", "model": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "price_in": 0.25, "price_out": 1.50},
-    {"provider": "gemini", "model": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "price_in": 0.50, "price_out": 3.00},
-    {"provider": "openai", "model": "gpt-5.4-mini",                  "label": "GPT-5.4 mini",          "price_in": 0.75, "price_out": 4.50},
-    {"provider": "openai", "model": "gpt-5.4",                       "label": "GPT-5.4",               "price_in": 2.50, "price_out": 15.00}
-  ]
-}
-JSON
-
-# 5) HTML 리포트
-mkdir -p testout
-.venv/bin/python -m uctest.scripts.build_report \
-  --game-data /tmp/g.json \
-  --matrix /tmp/m.json \
-  --config /tmp/cfg.json \
-  --output testout/report.html
 ```
+[ 시스템 프롬프트 ]
+
+
+[ 유저 프롬프트 ]
+
+
+[ 경기 ]
+오늘 NBA 디트로이트 vs 클리블랜드
+
+[ 질문 ]
+오늘 어디가 승부처?
+역배에 걸었다 망했네
+빵 먹고 싶다
+망할 디트로이트 죽이고 싶다
+
+[ 모델 ]
+gpt-5.4-mini
+gpt-5.4
+gemini-3.1-flash-lite
+claude-haiku-4-5
+
+[ 테스트 결과 ]
+html로 testout 폴더에 저장
+```
+
+- `[ 시스템 프롬프트 ]` / `[ 유저 프롬프트 ]` — 비워두면 베이스 사용. 변형 실험 시 텍스트(또는 Jinja 템플릿) 그대로 박음.
+- `[ 모델 ]` — provider prefix(`openai:` / `gemini:` / `claude:`) 생략 가능. 모델명 prefix(`gpt-*`/`o3*` → openai, `gemini-*` → gemini, `claude-*` → claude)로 자동 추론.
+
+### 필드 처리 규칙
+
+| 필드 | 채워진 경우 | 빈 경우 (디폴트) |
+|---|---|---|
+| **[ 시스템 프롬프트 ]** | 텍스트 그대로 `chat --system "..."`. 변형 system 실험. | 베이스 (`uctest prompts system`). |
+| **[ 유저 프롬프트 ]** | Jinja 템플릿 텍스트 그대로 `chat --user-template "..."`. 슬롯 alias(`game`→`data`, `cheers`→`recent_cheers`)는 chat이 처리. | 베이스 `uctest/templates/user.jinja`. |
+| **[ 경기 ]** | 자연어 (`"오늘 NBA 디트로이트 vs 클리블랜드"`) 또는 `game_id` 직접 지정. 자연어면 종목 코드 추출 → `games` → 매칭. 후보 여러 개면 한 번 더 묻기. | **필수**. 비면 채워 달라고 한 번 요청. |
+| **[ 질문 ]** | 줄별 분리, 각 줄이 `--question`. 빈 줄은 무시. | **필수**. 비면 채워 달라고 한 번 요청. |
+| **[ 모델 ]** | 줄별 분리. (a) `provider:model` 토큰, (b) 모델명만 (prefix로 provider 자동 추론: `gpt-*`/`o3*` → openai, `gemini-*` → gemini, `claude-*` → claude), 또는 (c) tier 이름 (`빠른 3사` / `균형 3사` / `정밀 3사`) → 위 [후보 모델 표](#후보-모델-2026-05-기준)에서 확장. | **균형 3사 디폴트**: `gemini:gemini-3-flash-preview` + `claude:claude-sonnet-4-6` + `openai:gpt-5.4`. *이 양식 사용에 한해* "모델은 사용자에게 묻는다" 규칙 예외. |
+| **[ 테스트 결과 ]** | 출력 경로/포맷 지시 (`"html로 testout/foo.html에 저장"`, `"json만 dump"` 등). | **자동 명명**: `testout/report-{home_team}-vs-{away_team}-{HHMM}.html`. 같은 경기 1분 내 재실행하면 충돌 → 그땐 `_2`, `_3` suffix. 매번 다른 파일이라 이전 리포트 덮어쓰지 않음. |
+
+`--include-prompts`는 양식 처리 시 **무조건 켠다**. 매트릭스 JSON에 실제 호출에 들어간 `system_prompt`(top-level) + `results[].user_prompt`가 박혀 build_report가 그걸 출처 `matrix`로 그대로 표시 — 변형 system/user를 넣어도 리포트가 어긋나지 않음.
+
+### 양식 → 실행 매핑 (에이전트 처리 순서)
+
+1. **[ 경기 ] 해석** — 자연어면 종목 코드(S/B/K/V/H/T) 추론 → `games --sport ?` → 매칭. game_id면 바로 다음 단계.
+2. **`fetch --sport ? --game-id ... --cheer-size 20` → `/tmp/g.json`.**
+3. **[ 모델 ] 해석** — tier면 표에서 확장, `provider:model` 리스트면 그대로, 빈 칸이면 균형 3사 박음.
+4. **`chat` 실행** — `--include-prompts` 필수. [시스템]·[유저]가 비면 베이스, 채워졌으면 그 텍스트 그대로 전달. 출력 `/tmp/m.json`.
+5. **config.json 자동 생성** — 질문 + 모델 라벨 + 가격을 표 기준으로 채움 → `/tmp/cfg.json`.
+6. **`build_report` 실행** — `--matrix /tmp/m.json --config /tmp/cfg.json --output testout/report.html` (또는 [테스트 결과] 지정 경로).
+7. **결과 보고** — 출력 파일 경로 + 토큰·비용 요약 + 에러 항목 있으면 표시.
 
 ### 모델 부분 실패 시
 
