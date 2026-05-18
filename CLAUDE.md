@@ -21,19 +21,28 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 ### 후보 모델 (2026-05 기준)
 
-`provider:model` 토큰으로 `--model` 인자에 전달.
+`provider:model` 토큰으로 `--model` 인자에 전달. **GPT 4.x 시리즈는 후보 제외** (5.x로 일원화). Gemini는 2.5 deprecation(2026-06-17) 이전에 **3.x 시리즈로 통일**.
 
 | Provider | 빠름·저렴 (smoke·빠른 iteration) | 균형 (일상 매트릭스) | 정밀·큰 모델 (최종 검증) |
 |---|---|---|---|
-| **gemini** | `gemini:gemini-2.5-flash-lite` | `gemini:gemini-2.5-flash` | `gemini:gemini-2.5-pro` |
+| **gemini** | `gemini:gemini-3.1-flash-lite` | `gemini:gemini-3-flash` | `gemini:gemini-3.1-pro-preview` |
 | **claude** | `claude:claude-haiku-4-5` | `claude:claude-sonnet-4-6` | `claude:claude-opus-4-7` |
-| **openai** | `openai:gpt-5.4-nano` 또는 `openai:gpt-4.1-mini` | `openai:gpt-5.4-mini` | `openai:gpt-5.5` |
+| **openai** | `openai:gpt-5.4-nano` | `openai:gpt-5.4-mini` 또는 `openai:gpt-5.4` | `openai:gpt-5.5` 또는 `openai:gpt-5.5-pro` |
 
-추론(reasoning) 특화: `openai:o3-mini`, `openai:o3-pro`. Claude·Gemini는 별도 reasoning 모델은 없고 본 모델이 thinking 기능 내장(`claude-opus-4-7`의 extended thinking, `gemini-2.5-*`의 thinking budget).
+주의:
+- `gpt-5.5-mini` / `gpt-5.5-nano`는 **공식 존재하지 않음** (2026-05-18 OpenAI API 직접 확인). 5.5 라인은 `gpt-5.5` / `gpt-5.5-pro` 둘뿐. 작은 변형이 필요하면 5.4 시리즈를 쓴다.
+- `gemini-3.1-pro-preview`는 preview 상태 — stable Pro는 GA 전. preview 안 쓰려면 정밀 컬럼은 `gemini-3-flash`(Pro급 지능)로 갈음 가능.
+- Anthropic 모델 ID는 dateless 형태도 모두 pinned snapshot (evergreen 아님). snapshot 명시가 필요하면 `claude-haiku-4-5-20251001` 같은 dated 변형 사용.
 
-deprecated/곧 EOL: `gemini-2.0-flash`·`gemini-2.0-flash-lite`(2026-06-01 종료), `gpt-5.2-chat-latest`·`gpt-5.3-chat-latest`(2026-05-08 제거됨). `gpt-4o-mini`는 동작은 하나 후속은 `gpt-4.1-mini` / `gpt-5.4-mini`.
+추론(reasoning) 특화 — 별도 행으로:
+- `openai:o3` (current), `openai:o3-pro` (높은 reasoning). `o3-mini`·`o4-mini`는 deprecated.
+- Claude·Gemini는 별도 reasoning 모델 없음. 본 모델이 thinking 내장 (`claude-opus-4-7` extended thinking, `gemini-3.*` thinking budget).
 
-Anthropic 모델 ID는 모두 pinned snapshot. dateless 형태(`claude-haiku-4-5`)도 evergreen pointer가 아니라 특정 릴리스 고정.
+곧 EOL되어 새 작업에선 쓰지 말 것:
+- `gemini-2.5-flash` / `gemini-2.5-pro` / `gemini-2.5-flash-lite` — 2026-06-17 deprecated (Vertex AI는 10-16)
+- `gemini-2.0-*` — 2026-06-01 종료
+- `gpt-5.2-chat-latest` / `gpt-5.3-chat-latest` — 2026-05-08 제거됨
+- `gpt-4o-*` / `gpt-4.1-*` — 동작은 하나 후보에서 명시적으로 제외
 
 ### 진행 규칙
 
