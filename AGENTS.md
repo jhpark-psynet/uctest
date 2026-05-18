@@ -6,14 +6,19 @@ LIVE 스코어 챗봇용 system/user 프롬프트를 여러 LLM에 같은 입력
 
 ## Setup 체크
 
-`.venv`와 `.env`가 이미 세팅돼 있다고 가정. 한 번만 확인:
-
+fresh clone이면 venv부터 만든다 (gitignored, 클론 시 빠짐):
 ```sh
-cd /home/huto/dev/uctest
+python -m venv .venv
+.venv/bin/pip install -e .[all-llm,dev]
+```
+(uv 사용 시 `uv venv && uv pip install -e .[all-llm,dev]`. 자세한 옵션은 README "설치" 섹션.)
+
+세팅됐는지 확인:
+```sh
 .venv/bin/uctest --help                # 서브커맨드 5개가 보이면 OK
 ```
 
-API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN`은 `.env`로 자동 로드 (pydantic-settings). `OPENSSL_CONF`는 패키지 import 시 `uctest/__init__.py`가 동봉 `openssl_legacy.cnf`로 자동 setdefault — **에이전트는 손대지 말 것**. (SQL Server 2014 TLS 호환용 — 안 걸면 fetch가 `pyodbc 08001 / 10054`로 깨짐.)
+API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN`은 `.env`로 자동 로드 (pydantic-settings). `.env`는 gitignored — 새로 깐 경우 직접 작성. `OPENSSL_CONF`는 패키지 import 시 `uctest/__init__.py`가 동봉 `openssl_legacy.cnf`로 자동 setdefault — **에이전트는 손대지 말 것**. (SQL Server 2014 TLS 호환용 — 안 걸면 fetch가 `pyodbc 08001 / 10054`로 깨짐.)
 
 ## 작업 시작 전 — 모델은 사용자에게 묻는다
 
