@@ -1,0 +1,31 @@
+{% if data -%}
+<match_state>
+{{ data | tojson(indent=2) }}
+</match_state>
+
+{% endif -%}
+{% if odds -%}
+<odds>
+{{ odds }}
+</odds>
+
+{% endif -%}
+{% if history -%}
+<history>
+{% for turn in history -%}
+{{ turn.role }}: {{ turn.content }}
+{% endfor %}
+</history>
+
+{% endif -%}
+{% if recent_cheers -%}
+<recent_cheers>
+{% for cheer in recent_cheers -%}
+- {{ cheer }}
+{% endfor %}
+</recent_cheers>
+
+{% endif -%}
+<question>
+{{ question }}
+</question>
