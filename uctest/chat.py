@@ -71,6 +71,7 @@ def _wrap_results(
     rendered_users: list[str],
     models: list[list[str]],
     include_prompts: bool,
+    system: str | None = None,
 ) -> dict[str, Any]:
     wrapped_results: list[dict[str, Any]] = []
     for r in raw["results"]:
@@ -88,13 +89,16 @@ def _wrap_results(
         if include_prompts:
             item["user_prompt"] = rendered_users[idx]
         wrapped_results.append(item)
-    return {
+    out: dict[str, Any] = {
         "started_at": raw["started_at"],
         "duration_seconds": raw["duration_seconds"],
         "questions": questions,
         "models": [list(m) for m in models],
         "results": wrapped_results,
     }
+    if include_prompts and system is not None:
+        out["system_prompt"] = system
+    return out
 
 
 async def do_chat(
@@ -120,7 +124,7 @@ async def do_chat(
     if provider_factory is not None:
         call_kwargs["provider_factory"] = provider_factory
     raw = await do_call(**call_kwargs)
-    return _wrap_results(raw, questions, rendered_users, models, include_prompts)
+    return _wrap_results(raw, questions, rendered_users, models, include_prompts, system=system)
 
 
 def add_parser(sub) -> None:

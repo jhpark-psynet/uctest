@@ -153,6 +153,18 @@ def test_wrap_results_include_prompts_adds_user_prompt():
     assert wrapped["results"][0]["user_prompt"] == "RENDERED-U0"
 
 
+def test_wrap_results_include_prompts_attaches_system_prompt():
+    raw = _raw_results([])
+    wrapped = _wrap_results(raw, [], [], [["g", "m"]], True, system="SYS-TEXT")
+    assert wrapped["system_prompt"] == "SYS-TEXT"
+
+
+def test_wrap_results_no_system_prompt_when_include_prompts_false():
+    raw = _raw_results([])
+    wrapped = _wrap_results(raw, [], [], [["g", "m"]], False, system="SYS-TEXT")
+    assert "system_prompt" not in wrapped
+
+
 def test_wrap_results_preserves_meta_and_models():
     raw = _raw_results([])
     wrapped = _wrap_results(raw, [], [], [["g", "m"]], False)
@@ -208,6 +220,7 @@ async def test_do_chat_include_prompts_attaches_rendered_user():
         include_prompts=True,
     )
     assert out["results"][0]["user_prompt"] == "Q:hi"
+    assert out["system_prompt"] == "sys"
 
 
 @pytest.mark.asyncio

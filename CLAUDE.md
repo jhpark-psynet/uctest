@@ -128,6 +128,96 @@ jq -r '.results | sort_by(.question_idx, .provider) | .[] |
        "[\(.provider)/\(.model) | Q\(.question_idx) | in=\(.input_tokens) out=\(.output_tokens)]\n\(.text)\n"' /tmp/m.json
 ```
 
+## 리포트 시나리오 — HTML로 저장 (복사해 쓰는 흐름)
+
+사용자가 **"오늘 ○○ 경기 뭐 있어? → 게임 픽 → 질문 리스트 → 모델 리스트 → HTML 리포트"** 형태로 요청할 때 그대로 따라하는 5단계. 실행 산출물은 `testout/report.html` (gitignored).
+
+### 흐름
+
+1. **사용자 트리거**: "오늘 농구 경기 뭐 있어?" 같은 종목 묻는 질문 → `games --sport K`로 응답.
+2. **사용자 선택**: 게임 + 질문 N개 + 모델 M개 (모델은 [후보 모델 표](#후보-모델-2026-05-기준) 기반).
+3. **데이터 fetch** → **chat 매트릭스 (`--include-prompts` 필수)** → **(옵션) eval JSON 작성** → **build_report**.
+
+`--include-prompts`는 리포트 정확성에 필요. 매트릭스 JSON에 실제 호출에 들어간 `system_prompt`(top-level) + `results[].user_prompt`가 박혀 build_report가 베이스 재렌더 대신 그대로 가져온다. 사용자가 `--system "변형 텍스트"`로 변형 system을 넣어도 리포트엔 그 변형이 박힘. 빠뜨리면 build_report가 베이스 가정으로 fallback (변형 실험이면 어긋남, 출처 표시로 경고).
+
+### 실행 — 디트로이트 vs 클리블랜드 (2026-05-18 실제 케이스)
+
+```sh
+# 1) 게임 목록 → game_id 픽업
+.venv/bin/uctest games --sport K 2>/dev/null | jq '.games[] | {game_id, home_team, away_team, status}'
+# → OT2025313107577 (디트로이트 94 : 125 클리블랜드, FINISHED)
+
+# 2) 데이터 + 응원글
+.venv/bin/uctest fetch --sport K --game-id OT2025313107577 --cheer-size 20 > /tmp/g.json 2>/dev/null
+
+# 3) 매트릭스 (4질문 × 4모델, --include-prompts 켜기)
+.venv/bin/uctest chat \
+  --system "$(.venv/bin/uctest prompts system)" \
+  --user-template-file uctest/templates/user.jinja \
+  --question "오늘 어디가 승부처?" \
+  --question "역배에 걸었다 망했네" \
+  --question "빵 먹고 싶다" \
+  --question "망할 디트로이트 죽이고 싶다" \
+  --game-data /tmp/g.json \
+  --include-prompts \
+  --model gemini:gemini-3.1-flash-lite-preview \
+  --model gemini:gemini-3-flash-preview \
+  --model openai:gpt-5.4-mini \
+  --model openai:gpt-5.4 \
+  > /tmp/m.json 2>/dev/null
+
+# 4) config.json (questions + models + 선택적 eval). 가장 작은 형태:
+cat > /tmp/cfg.json <<'JSON'
+{
+  "questions": ["오늘 어디가 승부처?", "역배에 걸었다 망했네", "빵 먹고 싶다", "망할 디트로이트 죽이고 싶다"],
+  "models": [
+    {"provider": "gemini", "model": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "price_in": 0.25, "price_out": 1.50},
+    {"provider": "gemini", "model": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "price_in": 0.50, "price_out": 3.00},
+    {"provider": "openai", "model": "gpt-5.4-mini",                  "label": "GPT-5.4 mini",          "price_in": 0.75, "price_out": 4.50},
+    {"provider": "openai", "model": "gpt-5.4",                       "label": "GPT-5.4",               "price_in": 2.50, "price_out": 15.00}
+  ]
+}
+JSON
+
+# 5) HTML 리포트
+mkdir -p testout
+.venv/bin/python -m uctest.scripts.build_report \
+  --game-data /tmp/g.json \
+  --matrix /tmp/m.json \
+  --config /tmp/cfg.json \
+  --output testout/report.html
+```
+
+### 모델 부분 실패 시
+
+특정 모델만 404/timeout 등으로 깨졌으면 **그 모델만 다시 chat** 실행해 `/tmp/m2.json`으로 받고, `--matrix /tmp/m.json --matrix /tmp/m2.json` 식으로 둘 다 넘기면 build_report가 머지 (같은 `(question_idx, provider, model)` 조합에서 후행 결과가 에러를 덮지 않고, 정상 결과가 에러 항목을 대체).
+
+### config.json — eval 섹션 (선택)
+
+기본 build_report는 데이터 표 + 토큰·비용 합계까지만 그린다. 정책 충족 평가·종합 평가·개선 방향을 붙이려면 config에 `eval` 키 추가:
+
+```jsonc
+"eval": {
+  "per_question": [
+    {
+      "title": "Q0 — 정보형 질문",
+      "summary": "한 줄 요약",
+      "rows": [
+        ["모델 라벨", "pass|partial|fail|truncated", "비고"]
+      ]
+    }
+  ],
+  "overall_models": [
+    {"label": "...", "strengths": "...", "weaknesses": "...", "verdict": "...", "highlight": "good|bad|null"}
+  ],
+  "improvements": [
+    {"title": "A. 프롬프트 보강", "items": ["...", "..."]}  // HTML 허용 (inline <code>, <strong> 등)
+  ]
+}
+```
+
+eval 작성은 보통 매트릭스 응답을 읽고 LLM(또는 에이전트 본인)이 채운다 — judge 자동화는 미구현. 평가 없이도 데이터 리포트는 동작.
+
 ## Template override 규칙 (헷갈리는 부분)
 
 - **`--system` 은 렌더되지 않는다.** chat/call이 받은 문자열을 그대로 LLM에 보낸다. Jinja 마커(`{{ }}`, `{% %}`)가 든 텍스트를 넘기면 마커가 그대로 LLM에 노출된다.
@@ -149,7 +239,7 @@ jq -r '.results | sort_by(.question_idx, .provider) | .[] |
 | `games` | `{date, sport, games[]}` | `games[].{game_id, home_team, away_team, home_score, away_score, status, league_name}` |
 | `fetch` | `{date, sport, game, cheers}` | `game` = 위 games[]의 한 항목과 동형, `cheers` = `list[str]` (최근순) |
 | `call` | `{started_at, duration_seconds, results[]}` | `results[].{user_idx, user, provider, model, text, input_tokens, output_tokens, error}` |
-| `chat` | `{started_at, duration_seconds, questions, models, results[]}` | `results[].{question_idx, question, provider, model, text, input_tokens, output_tokens, error}` (+ `user_prompt` if `--include-prompts`) |
+| `chat` | `{started_at, duration_seconds, questions, models, results[]}` | `results[].{question_idx, question, provider, model, text, input_tokens, output_tokens, error}`. `--include-prompts` 시 results[]에 `user_prompt`, top-level에 `system_prompt` 추가 |
 
 종료 코드: 0 정상 / 1 모든 결과 error / 2 입력 검증 실패 / 3 환경 미설정(MSSQL_DSN 등).
 
