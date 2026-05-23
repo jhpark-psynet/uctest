@@ -21,6 +21,10 @@ class UnifiedChatSettings(BaseSettings):
     livescore_default_cheer_size: int = 30
     livescore_i18n_enabled: bool = True
 
+    # psynet DATA30 HTTP API — baseball fetch 경로
+    data30_base_url: str = ""
+    data30_auth_key: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

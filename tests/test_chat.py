@@ -49,22 +49,34 @@ def test_render_users_empty_cheers_renders_empty_list():
     assert out == ["0"]
 
 
-def test_render_users_aliases_game_to_data_and_cheers_to_recent_cheers():
+def test_render_users_aliases_legacy_game_and_cheers_to_match_info_and_recent_cheers():
+    # 옛 fetch 출력(game/cheers) 또는 사용자가 손으로 만든 dict를 그대로 받아도
+    # 새 user.jinja 슬롯(match_info/recent_cheers)으로 fallback 별칭이 걸린다.
     out = _render_users(
-        "data.home={{ data.home }} cheers0={{ recent_cheers[0] }}",
+        "mi.home={{ match_info.home }} cheers0={{ recent_cheers[0] }}",
         ["q"],
         {"game": {"home": "Spurs"}, "cheers": ["go!"]},
     )
-    assert out == ["data.home=Spurs cheers0=go!"]
+    assert out == ["mi.home=Spurs cheers0=go!"]
+
+
+def test_render_users_aliases_legacy_data_key_to_match_info():
+    # 더 옛 alias(data)도 같이 받아준다.
+    out = _render_users(
+        "{{ match_info.home }}",
+        ["q"],
+        {"data": {"home": "Tottenham"}},
+    )
+    assert out == ["Tottenham"]
 
 
 def test_render_users_alias_does_not_override_explicit_keys():
-    # game_data가 이미 data/recent_cheers를 명시했으면 그쪽이 우선.
+    # game_data가 이미 match_info/recent_cheers를 명시했으면 그쪽이 우선.
     out = _render_users(
-        "{{ data }}|{{ recent_cheers }}",
+        "{{ match_info }}|{{ recent_cheers }}",
         ["q"],
         {"game": {"home": "X"}, "cheers": ["a"],
-         "data": "EXPLICIT", "recent_cheers": ["EXPL"]},
+         "match_info": "EXPLICIT", "recent_cheers": ["EXPL"]},
     )
     assert out == ["EXPLICIT|['EXPL']"]
 

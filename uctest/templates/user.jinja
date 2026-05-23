@@ -1,7 +1,13 @@
-{% if data -%}
-<match_state>
-{{ data | tojson(indent=2) }}
-</match_state>
+{% if match_info -%}
+<match_info>
+{{ match_info | tojson(indent=2) }}
+</match_info>
+
+{% endif -%}
+{% if live_board -%}
+<live_board>
+{{ live_board | tojson(indent=2) }}
+</live_board>
 
 {% endif -%}
 {% if odds -%}
@@ -20,8 +26,8 @@
 {% endif -%}
 {% if recent_cheers -%}
 <recent_cheers>
-{% for cheer in recent_cheers -%}
-- {{ cheer }}
+{% for c in recent_cheers -%}
+- {% if c.team_name %}[{{ c.team_name }}] {% endif %}{{ c.content }}
 {% endfor %}
 </recent_cheers>
 

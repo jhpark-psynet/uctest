@@ -50,12 +50,15 @@ def _render_users(
     game_data: dict[str, Any],
 ) -> list[str]:
     tpl = _jinja_env.from_string(user_template)
-    # fetch 출력 키(`game`/`cheers`)를 기본 user.jinja가 기대하는 슬롯 이름
-    # (`data`/`recent_cheers`)으로 별칭 노출. 원본 키도 같이 두어 raw 접근
-    # (`{{ game.home }}` 등)을 쓰는 커스텀 템플릿도 깨지지 않게 함.
+    # 신규 fetch 출력은 슬롯 이름(`match_info`/`recent_cheers`/`live_board`/`history`)을
+    # 그대로 쓰므로 별칭이 필요 없다. 다만 옛 fetch 출력(`game`/`cheers`/`data`)이나
+    # 사용자가 손으로 만든 game-data를 받아도 깨지지 않게 fallback alias만 둔다.
     base = dict(game_data)
-    if "data" not in base and "game" in game_data:
-        base["data"] = game_data["game"]
+    if "match_info" not in base:
+        if "data" in game_data:
+            base["match_info"] = game_data["data"]
+        elif "game" in game_data:
+            base["match_info"] = game_data["game"]
     if "recent_cheers" not in base and "cheers" in game_data:
         base["recent_cheers"] = game_data["cheers"]
     out: list[str] = []
