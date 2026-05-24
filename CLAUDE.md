@@ -157,6 +157,12 @@ gpt-5.4
 gemini-3.1-flash-lite
 claude-haiku-4-5
 
+[ 운영 비용 추정 ]
+DAU 40만
+챗 채택률 30%
+1인당 3회
+환율 1500원
+
 [ 테스트 결과 ]
 html로 testout 폴더에 저장
 ```
@@ -173,6 +179,7 @@ html로 testout 폴더에 저장
 | **[ 경기 ]** | 자연어 (`"오늘 NBA 디트로이트 vs 클리블랜드"`) 또는 `game_id` 직접 지정. 자연어면 종목 코드 추출 → `games` → 매칭. 후보 여러 개면 한 번 더 묻기. | **필수**. 비면 채워 달라고 한 번 요청. |
 | **[ 질문 ]** | 줄별 분리, 각 줄이 `--question`. 빈 줄은 무시. | **필수**. 비면 채워 달라고 한 번 요청. |
 | **[ 모델 ]** | 줄별 분리. (a) `provider:model` 토큰, (b) 모델명만 (prefix로 provider 자동 추론: `gpt-*`/`o3*` → openai, `gemini-*` → gemini, `claude-*` → claude), 또는 (c) tier 이름 (`빠른 3사` / `균형 3사` / `정밀 3사`) → 위 [후보 모델 표](#후보-모델-2026-05-기준)에서 확장. | **균형 3사 디폴트**: `gemini:gemini-3-flash-preview` + `claude:claude-sonnet-4-6` + `openai:gpt-5.4`. *이 양식 사용에 한해* "모델은 사용자에게 묻는다" 규칙 예외. |
+| **[ 운영 비용 추정 ]** | 자유 양식 텍스트에서 4개 값 파싱해 `config.projection`에 박음: **DAU** (정수, "40만"/"400000" 둘 다 OK), **챗 채택률** (백분율 또는 0~1), **1인당 N회/일** (정수), **환율 NNN원/USD** (선택, 있으면 KRW 병기). 보고서에 §4.1 "운영 비용 추정" 표 추가됨. | 생략하면 §4까지만 (토큰·비용 합계). §4.1 없음. |
 | **[ 테스트 결과 ]** | 출력 경로/포맷 지시 (`"html로 testout/foo.html에 저장"`, `"json만 dump"` 등). | **자동 명명**: `testout/report-{home_team}-vs-{away_team}-{HHMM}.html`. 같은 경기 1분 내 재실행하면 충돌 → 그땐 `_2`, `_3` suffix. 매번 다른 파일이라 이전 리포트 덮어쓰지 않음. |
 
 `--include-prompts`는 양식 처리 시 **무조건 켠다**. 매트릭스 JSON에 실제 호출에 들어간 `system_prompt`(top-level) + `results[].user_prompt`가 박혀 build_report가 그걸 출처 `matrix`로 그대로 표시 — 변형 system/user를 넣어도 리포트가 어긋나지 않음.
@@ -216,6 +223,27 @@ html로 testout 폴더에 저장
 ```
 
 eval 작성은 보통 매트릭스 응답을 읽고 LLM(또는 에이전트 본인)이 채운다 — judge 자동화는 미구현. 평가 없이도 데이터 리포트는 동작.
+
+### config.json — projection (운영 비용 추정, 선택)
+
+config에 `projection` 키가 있으면 §4 토큰·비용 합계 바로 아래에 §4.1 "운영 비용 추정" 표를 그린다.
+
+```jsonc
+"projection": {
+  "dau": 400000,           // DAU (정수)
+  "adoption_rate": 0.30,   // 챗 채택률 (0~1)
+  "queries_per_user": 3,   // 1인당 Q&A/일
+  "krw_per_usd": 1500      // 환율 (선택; 있으면 USD 옆에 KRW 병기, 없으면 USD만)
+}
+```
+
+계산:
+- **일 Q&A** = `dau × adoption_rate × queries_per_user`
+- **모델별 단가** = §4 표 모델 총비용 ÷ 매트릭스 질문 수 (다수 질문이면 평균 단가)
+- **일/월/연 비용** = 단가 × 일 Q&A × (1 / 30 / 365)
+- `krw_per_usd` 있으면 각 비용 셀에 `₩` 환산 병기
+
+[ 운영 비용 추정 ] 양식 필드가 채워졌으면 에이전트가 자동으로 이 블록을 만들어 `cfg.json`에 박는다.
 
 ## Template override 규칙 (헷갈리는 부분)
 
