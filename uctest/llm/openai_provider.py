@@ -6,8 +6,11 @@ logger = structlog.get_logger()
 
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, api_key: str, model_name: str = "gpt-4o"):
-        self.client = openai_sdk.AsyncOpenAI(api_key=api_key)
+    def __init__(self, api_key: str, model_name: str = "gpt-4o",
+                 base_url: str | None = None):
+        # base_url 지정 시 vLLM/Ollama/LM Studio 등 OpenAI-compatible 엔드포인트로
+        # 라우팅. None이면 클라우드 OpenAI 기본 URL.
+        self.client = openai_sdk.AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.model_name = model_name
 
     async def generate(self, system: str, user: str, config: LLMConfig | None = None) -> LLMResponse:
