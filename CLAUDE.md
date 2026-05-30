@@ -42,11 +42,15 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 | **openai** | `gpt-5.4-mini` | 0.75 / 4.50 | 빠름 |
 | **openai** | `gpt-5.4` | 2.50 / 15.00 | 균형 |
 | **openai** | `gpt-5.5` | 5.00 / 30.00 | 정밀 (1.05M ctx) |
+| **gemini** | `gemma-4-26b-a4b-it` | **0 / 0** (Google AI Studio free tier, fair-use 한도 있음) | OSS MoE (25.2B total / 3.8B active, 31B급 품질). 262K ctx. smoke·비용 0 비교용. |
+
+> Gemma는 별도 모델 패밀리(open weights)지만 `GEMINI_API_KEY`로 같은 SDK·같은 GeminiProvider 어댑터로 호출됨 (`--model gemini:gemma-4-26b-a4b-it`). Vertex AI 등 standard tier로 가면 $0.060 / $0.300. 무료지만 운영 부하 큰 워크로드는 standard tier 가격으로 비용 추정해야 함.
 
 비용 감 잡기 — 입력 ~3000 tok × 출력 ~100 tok 한 응답 기준 단가 (USD):
 
 | Tier | gemini | claude | openai |
 |---|---|---|---|
+| 무료 (fair-use) | gemma-4-26b-a4b-it ~0 | — | — |
 | 가장 저렴 | flash-lite ~0.001 | — | nano ~0.001 |
 | 빠름 | — | haiku ~0.004 | mini ~0.003 |
 | 균형 | flash ~0.002 | sonnet ~0.011 | 5.4 ~0.009 |

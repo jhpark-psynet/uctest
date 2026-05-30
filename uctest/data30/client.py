@@ -14,7 +14,7 @@ class Data30Client:
         *,
         base_url: str,
         auth_key: str,
-        timeout: float = 5.0,
+        timeout: float = 15.0,
     ):
         if not base_url:
             raise ValueError("DATA30_BASE_URL is required")
