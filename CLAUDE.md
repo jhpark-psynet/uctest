@@ -93,7 +93,17 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 
 sport 코드: `S` 축구, `B` 야구, `K` 농구, `V` 배구, `H` 핸드볼, `T` 테니스 (오늘 진행 중인 종목만 채워짐).
 
-provider 토큰: `gemini`, `claude`, `openai`. 예: `--model gemini:gemini-2.5-flash`, `--model claude:claude-haiku-4-5`, `--model openai:gpt-4o-mini`.
+provider 토큰: `gemini`, `claude`, `openai` (클라우드) + `lmstudio`, `vllm`, `local` (로컬 OpenAI-compatible). 예: `--model gemini:gemini-2.5-flash`, `--model claude:claude-haiku-4-5`, `--model openai:gpt-4o-mini`, `--model lmstudio:google/gemma-4-12b`, `--model vllm:gemma-4-26b-a4b-it`.
+
+로컬 provider 토큰은 각자 base_url을 `.env`에서 읽는다 (config 필드, **inline export 불필요** — 우선순위 `프로세스 env var > .env(settings) > default`):
+
+| 토큰 | env (.env) | 기본 base_url |
+|---|---|---|
+| `lmstudio` | `LMSTUDIO_BASE_URL` | `http://127.0.0.1:1234/v1` |
+| `vllm` | `VLLM_BASE_URL` | `http://localhost:8000/v1` |
+| `local` (하위호환) | `LOCAL_LLM_BASE_URL` | `http://localhost:8000/v1` |
+
+`lmstudio`·`vllm`은 별 토큰이라 **한 매트릭스에서 동시 비교 가능** (`--model lmstudio:... --model vllm:...`). 둘 다 같은 OpenAI-compatible 어댑터(`uctest/llm/local_provider.py`)지만 향하는 포트가 다름. 런타임 식별: **LM Studio** = `GET /api/v0/models` → 200(네이티브 REST), **vLLM** = `GET /version` → `{"version":...}` (+ `Server: uvicorn` 헤더). `/metrics`는 둘 다 200이라 판별 불가.
 
 ## 베이스 템플릿 확인
 
