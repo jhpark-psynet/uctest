@@ -37,6 +37,21 @@ def _settings_api_key_for(settings: UnifiedChatSettings) -> Callable[[str], str]
     return _key
 
 
+async def _timed(coro: Any) -> tuple[Any, int]:
+    """단일 generate coro를 감싸 per-응답 latency(ms)를 잰다.
+
+    매트릭스는 asyncio.gather로 동시 실행되므로 전체 duration_seconds로는
+    모델별 응답 시간을 분리할 수 없다. 각 coro를 개별 타이머로 감싼다.
+    예외는 삼켜서 (exc, elapsed_ms) 튜플로 반환 — gather가 멈추지 않게
+    (호출부에서 isinstance(r, Exception)로 분기)."""
+    t0 = time.perf_counter()
+    try:
+        r: Any = await coro
+    except Exception as e:  # noqa: BLE001
+        r = e
+    return r, round((time.perf_counter() - t0) * 1000)
+
+
 async def do_call(
     *,
     system: str,
@@ -73,16 +88,17 @@ async def do_call(
                     raise _e
                 coros.append(_raise())
 
-    raw = await asyncio.gather(*coros, return_exceptions=True)
+    raw = await asyncio.gather(*(_timed(c) for c in coros))
 
     results: list[dict[str, Any]] = []
-    for (ui, user, provider, model_name), r in zip(metas, raw):
+    for (ui, user, provider, model_name), (r, elapsed_ms) in zip(metas, raw):
         if isinstance(r, Exception):
             results.append({
                 "user_idx": ui, "user": user,
                 "provider": provider, "model": model_name,
                 "text": "",
                 "input_tokens": None, "output_tokens": None,
+                "elapsed_ms": elapsed_ms,
                 "error": str(r),
             })
         else:
@@ -92,6 +108,7 @@ async def do_call(
                 "text": r.text,
                 "input_tokens": r.input_tokens,
                 "output_tokens": r.output_tokens,
+                "elapsed_ms": elapsed_ms,
                 "error": None,
             })
 

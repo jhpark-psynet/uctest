@@ -87,6 +87,7 @@ def _wrap_results(
             "text": r["text"],
             "input_tokens": r["input_tokens"],
             "output_tokens": r["output_tokens"],
+            "elapsed_ms": r.get("elapsed_ms"),
             "error": r["error"],
         }
         if include_prompts:

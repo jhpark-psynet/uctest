@@ -125,16 +125,23 @@ def _find_response(results: list[dict[str, Any]], qi: int, provider: str, model:
     return None
 
 
+def _fmt_ms(ms: Any) -> str:
+    if ms is None:
+        return "-"
+    return f"{int(ms):,} ms"
+
+
 def _cell_response(r: dict[str, Any] | None) -> str:
     if r is None:
-        return '<td class="text" colspan="2"><em style="color:#888">없음</em></td>'
+        return '<td class="text" colspan="3"><em style="color:#888">없음</em></td>'
     if r.get("error"):
         body = f'<em style="color:#c00">ERROR:</em> {_esc(r["error"])[:300]}'
         tok = "-"
     else:
         body = _esc(r["text"])
         tok = f'in {r["input_tokens"]}<br>out {r["output_tokens"]}'
-    return f'<td class="text">{body}</td><td class="tok">{tok}</td>'
+    ms = _fmt_ms(r.get("elapsed_ms"))
+    return f'<td class="text">{body}</td><td class="tok">{tok}</td><td class="tok">{ms}</td>'
 
 
 def build_html(
@@ -227,7 +234,7 @@ system 프롬프트는 모든 호출에 동일. user 프롬프트는 질문마�
 </details>
 <h3>모델별 응답</h3>
 <table>
-<thead><tr><th style="width:18%">모델</th><th>응답</th><th class="right" style="width:12%">토큰</th></tr></thead>
+<thead><tr><th style="width:18%">모델</th><th>응답</th><th class="right" style="width:11%">토큰</th><th class="right" style="width:10%">응답시간</th></tr></thead>
 <tbody>
 """)
         for m in models:
@@ -273,6 +280,7 @@ system 프롬프트는 모든 호출에 동일. user 프롬프트는 질문마�
     # ---- Token totals + cost ----
     pricing = {(m["provider"], m["model"]): (m.get("price_in", 0.0), m.get("price_out", 0.0)) for m in models}
     totals: dict[tuple[str, str], list[int]] = {}
+    latencies: dict[tuple[str, str], list[int]] = {}
     for r in matrix_results:
         if r.get("error"):
             continue
@@ -280,11 +288,21 @@ system 프롬프트는 모든 호출에 동일. user 프롬프트는 질문마�
         totals.setdefault(key, [0, 0])
         totals[key][0] += r.get("input_tokens") or 0
         totals[key][1] += r.get("output_tokens") or 0
+        ms = r.get("elapsed_ms")
+        if ms is not None:
+            latencies.setdefault(key, []).append(int(ms))
+
+    def _latency_cell(key: tuple[str, str]) -> str:
+        vals = latencies.get(key)
+        if not vals:
+            return "-"
+        avg = sum(vals) / len(vals)
+        return f"{avg:,.0f} ms<br><span style=\"color:#888;font-size:0.78rem\">min {min(vals):,} / max {max(vals):,}</span>"
 
     parts.append("""
-<h2>4. 토큰·비용 합계</h2>
+<h2>4. 토큰·비용·응답시간 합계</h2>
 <table class="eval-table">
-<thead><tr><th>모델</th><th class="right">입력 합</th><th class="right">출력 합</th><th class="right">추정 비용 (USD)</th></tr></thead>
+<thead><tr><th>모델</th><th class="right">입력 합</th><th class="right">출력 합</th><th class="right">추정 비용 (USD)</th><th class="right">평균 응답시간</th></tr></thead>
 <tbody>
 """)
     total_cost = 0.0
@@ -298,10 +316,11 @@ system 프롬프트는 모든 호출에 동일. user 프롬프트는 질문마�
             f'<tr><td>{_esc(m["label"])}</td>'
             f'<td class="right">{tin:,}</td>'
             f'<td class="right">{tout:,}</td>'
-            f'<td class="right">${cost:.5f}</td></tr>'
+            f'<td class="right">${cost:.5f}</td>'
+            f'<td class="right">{_latency_cell(key)}</td></tr>'
         )
     parts.append(
-        f'<tr style="font-weight:600;background:#f9f9f9"><td>합계</td><td class="right">-</td><td class="right">-</td><td class="right">${total_cost:.5f}</td></tr>'
+        f'<tr style="font-weight:600;background:#f9f9f9"><td>합계</td><td class="right">-</td><td class="right">-</td><td class="right">${total_cost:.5f}</td><td class="right">-</td></tr>'
         "</tbody></table>"
     )
 
