@@ -87,7 +87,7 @@ API 키(`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)와 `MSSQL_DSN
 |---|---|---|
 | `prompts {list,system,user}` | 동봉 system/user.jinja 텍스트 dump | 없음 |
 | `games --sport S` | 오늘 게임 목록 (game_id 픽업용) | MSSQL |
-| `fetch --sport S --game-id <id> [--cheer-size N]` | 단일 게임 + 응원글 JSON | MSSQL |
+| `fetch --sport S --game-id <id> [--cheer-size N] [--diet]` | 단일 게임 + 응원글 JSON. `--diet`는 baseball 입력 다이어트(토큰 ~10×↓·환각 감소, `docs/input_diet.md`) | MSSQL / DATA30(B) |
 | `call --system ... --user ... --model provider:model` | system × users × models 매트릭스 (raw) | LLM API |
 | `chat --system ... --user-template-file ... --question ... --game-data ... --model ...` | user는 Jinja 템플릿 + 질문 N개로 렌더, models M개 매트릭스 | LLM API |
 

@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 from uctest.config import UnifiedChatSettings
 from uctest.data30 import baseball as data30_baseball
+from uctest.data30.diet import apply_diet
 from uctest.data30.client import Data30Client
 from uctest.io import write_output
 from uctest.livescore import open_dao
@@ -47,12 +48,16 @@ async def do_fetch(
     cheer_size: int | None,
     default_cheer_size: int,
     data30: _Data30ClientLike | None = None,
+    diet: bool = False,
 ) -> dict[str, Any]:
     """DAO/Data30Client 호출 + 응답 모양 정리.
 
     - game_id 없음: MSSQL list 모드 (기존). DAO 필수.
     - game_id 있음 + sport=B + data30 제공: DATA30 경로.
     - game_id 있음 + 그 외: MSSQL 단일 경기 경로. DAO 필수.
+
+    diet=True면 baseball 출력에 입력 다이어트(docs/input_diet.md)를 적용한다 —
+    match_info 노이즈 제거 + 스코어/투수 정규화. 비-baseball 출력은 무영향.
     """
     if not game_id:
         if dao is None:
@@ -62,7 +67,7 @@ async def do_fetch(
 
     if _is_baseball(sport) and data30 is not None:
         raw = await data30.get_baseball_total_question(game_id)
-        return {
+        out = {
             "date": date,
             "sport": sport,
             "game_id": game_id,
@@ -71,18 +76,20 @@ async def do_fetch(
             "recent_cheers": data30_baseball.to_recent_cheers(raw),
             "history": data30_baseball.to_history(raw),
         }
+        return apply_diet(out) if diet else out
 
     if dao is None:
         raise ValueError("MSSQL DAO required for non-baseball single-game fetch")
     size = cheer_size if cheer_size is not None else default_cheer_size
     bundle = await dao.get_game_with_cheers(date, sport, game_id, size)
-    return {
+    out = {
         "date": date,
         "sport": sport,
         "game_id": game_id,
         "match_info": bundle["game"],
         "recent_cheers": bundle["cheers"],
     }
+    return apply_diet(out) if diet else out
 
 
 def add_parser(sub) -> None:
@@ -92,6 +99,9 @@ def add_parser(sub) -> None:
     p.add_argument("--game-id", default=None,
                    help="단일 게임 + 응원글. 없으면 list 모드(deprecated; uctest games 권장)")
     p.add_argument("--cheer-size", type=int, default=None)
+    p.add_argument("--diet", action="store_true",
+                   help="입력 다이어트 적용 (docs/input_diet.md): match_info 노이즈 제거 + "
+                        "스코어/투수 정규화. baseball에서 입력 토큰 ~10×↓, 환각 감소.")
     p.add_argument("--out", default=None)
     p.add_argument("--no-i18n", action="store_true",
                    help="팀/리그 마스터 i18n 로드 생략 (ID fallback)")
@@ -122,6 +132,7 @@ def _run(args: argparse.Namespace) -> int:
                 cheer_size=args.cheer_size,
                 default_cheer_size=settings.livescore_default_cheer_size,
                 data30=client,
+                diet=args.diet,
             )
 
         out = asyncio.run(_async_baseball())
@@ -142,6 +153,7 @@ def _run(args: argparse.Namespace) -> int:
                 game_id=args.game_id,
                 cheer_size=args.cheer_size,
                 default_cheer_size=settings.livescore_default_cheer_size,
+                diet=args.diet,
             )
 
     out = asyncio.run(_async_main())
