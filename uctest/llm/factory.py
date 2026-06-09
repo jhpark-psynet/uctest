@@ -2,7 +2,7 @@ from .provider import LLMProvider
 from .gemini_provider import GeminiProvider
 from .claude_provider import ClaudeProvider
 from .openai_provider import OpenAIProvider
-from .local_provider import LocalLLMProvider
+from .local_provider import LocalLLMProvider, LMStudioProvider, VLLMProvider
 
 
 class LLMProviderFactory:
@@ -11,6 +11,8 @@ class LLMProviderFactory:
         "claude": ClaudeProvider,
         "openai": OpenAIProvider,
         "local": LocalLLMProvider,
+        "lmstudio": LMStudioProvider,
+        "vllm": VLLMProvider,
     }
 
     @classmethod

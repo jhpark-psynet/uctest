@@ -25,6 +25,15 @@ class UnifiedChatSettings(BaseSettings):
     data30_base_url: str = ""
     data30_auth_key: str = ""
 
+    # 로컬 OpenAI-compatible LLM 엔드포인트. provider 토큰별로 분리:
+    #   local:    범용 (하위호환)   ← LOCAL_LLM_BASE_URL
+    #   lmstudio: LM Studio        ← LMSTUDIO_BASE_URL (기본 :1234)
+    #   vllm:     vLLM             ← VLLM_BASE_URL     (기본 :8000)
+    # 식별 핑거프린트: LM Studio는 GET /api/v0/models=200, vLLM은 GET /version={"version":...}.
+    local_llm_base_url: str = "http://localhost:8000/v1"
+    lmstudio_base_url: str = "http://127.0.0.1:1234/v1"
+    vllm_base_url: str = "http://localhost:8000/v1"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
