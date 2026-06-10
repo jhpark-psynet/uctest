@@ -57,8 +57,9 @@ def _convert_status(state: str) -> str:
     return {
         "B": "UPCOMING", "D": "UPCOMING", "1": "UPCOMING",
         "I": "LIVE", "S": "LIVE", "U": "LIVE", "2": "LIVE",
-        "E": "FINISHED", "C": "FINISHED", "F": "FINISHED", "O": "FINISHED",
+        "E": "FINISHED", "F": "FINISHED", "O": "FINISHED",
         "3": "FINISHED", "FT": "FINISHED",
+        "C": "CANCELLED",
     }.get(state, "UPCOMING")
 
 
@@ -112,6 +113,8 @@ def _build_game_json(
             status_text = "진행 중"
         elif status == "UPCOMING":
             status_text = "예정"
+        elif status == "CANCELLED":
+            status_text = "취소"
 
     start_time = ""
     if match_time:
